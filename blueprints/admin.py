@@ -1,8 +1,9 @@
-from flask import Blueprint, render_template, request, session, redirect, abort, url_for,flash
+from flask import Blueprint, current_app, render_template, request, session, redirect, abort, url_for,flash
 import config
 from models.cart import Cart
 from models.product import Product
 from extentions import db
+import os
 
 app = Blueprint("admin", __name__)
 
@@ -67,13 +68,21 @@ def products():
         else:
             p.active = 1
 
-        db.session.add(p)
-        db.session.commit()
+        try:
+            db.session.add(p)
+            db.session.commit()
+        
+        except IntegrityError:
+            db.session.rollback()
+            flash("محصولی با این نام قبلاً ثبت شده است!")
+            return redirect(url_for('admin.products'))
 
-        file.save(f'static/cover/{p.id}.jpg')
+        cover_path = os.path.join(current_app.root_path, 'static', 'cover')
+        os.makedirs(cover_path, exist_ok=True)
+        file.save(os.path.join(cover_path, f'{p.id}.jpg'))
 
         flash("محصول جدید اضافه شد")
-        return "done"
+        return render_template("admin/done.html")
 
 
 @app.route('/admin/dashboard/edit-product/<id>', methods=["GET", "POST"])
